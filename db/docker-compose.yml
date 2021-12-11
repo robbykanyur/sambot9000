@@ -1,0 +1,24 @@
+version: '3'
+services:
+  sambot_db:
+    restart: always
+    image: mariadb:10.6.4
+    networks: 
+      - sambot_default
+    ports:
+      - "5555:3306"
+    volumes:
+      - sambot_db:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+
+volumes:
+  sambot_db:
+    external: true
+
+networks:
+  sambot_default:
+    external: true

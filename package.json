@@ -1,11 +1,17 @@
 {
-  "name": "gpt3-tweets",
+  "name": "sambot9000",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "db": "./util/connect_to_db.sh"
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^10.0.0",
+    "mariadb": "^2.5.5",
+    "needle": "^3.0.0",
+    "sequelize": "^6.12.0-beta.2"
+  }
 }
