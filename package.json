@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "db": "./util/connect_to_db.sh",
-    "scrape": "python3 ./util/scrape_tweets.py"
+    "scrape": "source ./util/venv/bin/activate && python3 ./util/scrape_tweets.py && deactivate"
   },
   "author": "",
   "license": "ISC",

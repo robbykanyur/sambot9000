@@ -10,7 +10,7 @@ outputdir = os.path.join(basedir, 'data/data.txt')
 load_dotenv(os.path.join(basedir, '.env'))
 username = os.getenv('USERNAME')
 
-print('Scraping tweets...')
+print('Scraping tweet URLs...')
 os.system(f'snscrape twitter-user {username} >{outputdir}')
 
 print('Scraping completed.')
