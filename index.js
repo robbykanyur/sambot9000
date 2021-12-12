@@ -2,15 +2,17 @@ const needle = require('needle');
 const { Sequelize } = require('sequelize')
 require('dotenv').config();
 
-async function connect_to_db() {
-    const db = new Sequelize(process.env.DB_NAME, process.env.DB_USER, process.env.DB_PASS, {
+async function connectToDatabase() {
+    const db = new Sequelize(process.env.MYSQL_DATABASE, process.env.MYSQL_USER, process.env.MYSQL_PASSWORD, {
         host: process.env.DB_HOST,
         port: process.env.DB_PORT,
         dialect: 'mariadb'
     })
+    console.log('Connecting to database...');
     try {
         await db.authenticate();
-        console.log('connected to db');
+        console.log('Connected!');
+        return db;
     } catch (err) {
         console.log(err);
     }
@@ -38,6 +40,7 @@ async function getUserByUsername(username) {
 
 async function getTweetsByUser(user_id) {
     let user_tweets = [];
+    let processed_tweets = [];
     const endpoint = `https://api.twitter.com/2/users/${user_id}/tweets`;
 
     const params = {
@@ -53,17 +56,26 @@ async function getTweetsByUser(user_id) {
 
     let has_next_page = true;
     let next_token = null;
+    let contains_username = null;
+    const re_username = /([@][\w]*)/g;
+    const re_url = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/g;
     console.log('Retrieving tweets...');
 
     while (has_next_page) {
         let response = await getTweetsPage(params, options, next_token, endpoint);
-        console.log(response);
         if (response && response.meta && response.meta.result_count && response.meta.result_count > 0) {
             if (response.data) {
                 user_tweets.push.apply(user_tweets, response.data);
+                processed_tweets.push(user_tweets.map((tweet) => {
+                    tweet.text = tweet.text.replaceAll(re_username,'')
+                    tweet.text = tweet.text.replaceAll(re_url,'')
+                    return tweet;
+                }));
             }
             if (response.meta.next_token) {
                 next_token = response.meta.next_token;
+                // only get one page for now
+                has_next_page = false;
             } else {
                 has_next_page = false;
             }
@@ -72,7 +84,8 @@ async function getTweetsByUser(user_id) {
         }
     }
 
-    return user_tweets;
+    console.log(processed_tweets);
+    return processed_tweets;
 }
 
 const getTweetsPage = async (params, options, next_token, endpoint) => {
@@ -96,10 +109,15 @@ const getTweetsPage = async (params, options, next_token, endpoint) => {
 (async () => {
     let user_id = null;
     let tweets = null;
+    let db = null;
 
-    connect_to_db();
+    try {
+        db = await connectToDatabase();
+    } catch (err) {
+        console.log(err);
+        process.exit(-1);
+    }
 
-    /* 
     try {
         user_id = await getUserByUsername();
     } catch (err) {
@@ -113,6 +131,6 @@ const getTweetsPage = async (params, options, next_token, endpoint) => {
         console.log(err);
         process.exit(-1);
     }
+
     process.exit();
-    */
 })();

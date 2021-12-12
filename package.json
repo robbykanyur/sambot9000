@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
     "db": "./util/connect_to_db.sh"
   },
   "author": "",
@@ -12,6 +13,7 @@
     "dotenv": "^10.0.0",
     "mariadb": "^2.5.5",
     "needle": "^3.0.0",
-    "sequelize": "^6.12.0-beta.2"
+    "sequelize": "^6.12.0-beta.2",
+    "sequelize-cli": "^6.3.0"
   }
 }
