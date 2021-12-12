@@ -1,5 +1,6 @@
 const needle = require('needle');
 const { Sequelize } = require('sequelize')
+const fs = require('fs');
 require('dotenv').config();
 
 async function connectToDatabase() {
@@ -38,9 +39,20 @@ async function getUserByUsername(username) {
     }
 }
 
+async function cleanTweetText(tweets) {
+    const re_username = /([@][\w]*)/g;
+    const re_url = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/g;
+
+    return tweets.map((tweet) => {
+        tweet.text = tweet.text.replaceAll(re_username,'')
+        tweet.text = tweet.text.replaceAll(re_url,'')
+        console.dir(tweet);
+        return tweet;
+    });
+}
+
 async function getTweetsByUser(user_id) {
     let user_tweets = [];
-    let processed_tweets = [];
     const endpoint = `https://api.twitter.com/2/users/${user_id}/tweets`;
 
     const params = {
@@ -56,9 +68,6 @@ async function getTweetsByUser(user_id) {
 
     let has_next_page = true;
     let next_token = null;
-    let contains_username = null;
-    const re_username = /([@][\w]*)/g;
-    const re_url = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/g;
     console.log('Retrieving tweets...');
 
     while (has_next_page) {
@@ -66,12 +75,6 @@ async function getTweetsByUser(user_id) {
         if (response && response.meta && response.meta.result_count && response.meta.result_count > 0) {
             if (response.data) {
                 user_tweets.push.apply(user_tweets, response.data);
-                processed_tweets.push(user_tweets.map((tweet) => {
-                    tweet.text = tweet.text.replaceAll(re_username,'')
-                    tweet.text = tweet.text.replaceAll(re_url,'')
-                    console.dir(tweet);
-                    return tweet;
-                }));
             }
             if (response.meta.next_token) {
                 next_token = response.meta.next_token;
@@ -84,7 +87,7 @@ async function getTweetsByUser(user_id) {
         }
     }
 
-    return processed_tweets;
+    return user_tweets;
 }
 
 const getTweetsPage = async (params, options, next_token, endpoint) => {
@@ -117,34 +120,74 @@ const addTweetsToDatabase = async (tweets, db) => {
     };
 }
 
+const loadArchivedTweetIds = async () => {
+    const re_id = /[^status\/]\d*$/;
+    const urls = fs.readFileSync('./data/data.txt').toString('utf-8').split('\n');
+    return urls.map(url => {
+        if (url.match(re_id)) {
+            return url.match(re_id)[0];
+        }
+    });
+}
+
+const fetchTweetsBulk = async (page) => {
+    const endpoint = "https://api.twitter.com/2/tweets"
+
+    const params = {
+        "ids": page,
+        "tweet.fields": "id,created_at,text"
+    }
+
+    const res = await needle('get', endpoint, params, {
+        headers: {
+            "authorization": `Bearer ${process.env.API_TOKEN}`
+        }
+    })
+
+    if (res.body) {
+        return res.body.data;
+    } else {
+        throw new Error('Request unsuccessful')
+    }
+}
+
+const getArchivedTweets = async (urls) => {
+    const pages = parseInt(urls.length / 100);
+    const tweets = [];
+    let page = null;
+
+    for (let i = 0; i < pages + 1; i++) {
+        if ( i < pages ) {
+            page = urls.slice(i * 100, (i * 100) + 100).join(',');
+        } else {
+            page = urls.slice(i * 100, urls.length - 1).join(',');
+        }
+        tweets.push(await fetchTweetsBulk(page));
+    }
+
+    return tweets;
+}
+
+const writeJsonFile = async (tweets) => {
+    fs.writeFileSync('./data/tweets.json', JSON.stringify(tweets), 'utf-8');
+}
+
 (async () => {
     let user_id = null;
     let tweets = null;
     let db = null;
+    let archived_tweet_ids = [];
+    let archived_tweets = [];
 
     try {
-        db = await connectToDatabase();
-    } catch (err) {
-        console.log(err);
-        process.exit(-1);
-    }
-
-    try {
-        user_id = await getUserByUsername();
-    } catch (err) {
-        console.log(err);
-        process.exit(-1);
-    }
-
-    try {
-        tweets = await getTweetsByUser(user_id);
-    } catch (err) {
-        console.log(err);
-        process.exit(-1);
-    }
-
-    try {
-        await addTweetsToDatabase(tweets, db);
+        // db = await connectToDatabase();
+        // user_id = await getUserByUsername();
+        archived_tweet_ids = await loadArchivedTweetIds();
+        archived_tweets = await getArchivedTweets(archived_tweet_ids);
+        writeJsonFile(archived_tweets);
+        // console.log(archived_tweets)
+        // tweets = await getTweetsByUser(user_id);
+        // await addTweetsToDatabase(tweets, db);
     } catch (err) {
         console.log(err);
         process.exit(-1);
