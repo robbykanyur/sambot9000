@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "db": "./util/connect_to_db.sh"
+    "db": "./util/connect_to_db.sh",
+    "scrape": "python3 ./util/scrape_tweets.py"
   },
   "author": "",
   "license": "ISC",

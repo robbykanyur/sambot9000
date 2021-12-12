@@ -69,12 +69,12 @@ async function getTweetsByUser(user_id) {
                 processed_tweets.push(user_tweets.map((tweet) => {
                     tweet.text = tweet.text.replaceAll(re_username,'')
                     tweet.text = tweet.text.replaceAll(re_url,'')
+                    console.dir(tweet);
                     return tweet;
                 }));
             }
             if (response.meta.next_token) {
                 next_token = response.meta.next_token;
-                // only get one page for now
                 has_next_page = false;
             } else {
                 has_next_page = false;
@@ -84,7 +84,6 @@ async function getTweetsByUser(user_id) {
         }
     }
 
-    console.log(processed_tweets);
     return processed_tweets;
 }
 
@@ -104,6 +103,18 @@ const getTweetsPage = async (params, options, next_token, endpoint) => {
     } catch (err) {
         throw new Error(`Request failed: ${err}`);
     }
+}
+
+const addTweetsToDatabase = async (tweets, db) => {
+    const Tweet = db.models.Tweet;
+    console.log(db);
+    for (const tweet in tweets) {
+        await Tweet.create({
+            id: tweet.id,
+            text: tweet.text,
+            tweetedAt: tweet.created_at
+        });
+    };
 }
 
 (async () => {
@@ -127,6 +138,13 @@ const getTweetsPage = async (params, options, next_token, endpoint) => {
 
     try {
         tweets = await getTweetsByUser(user_id);
+    } catch (err) {
+        console.log(err);
+        process.exit(-1);
+    }
+
+    try {
+        await addTweetsToDatabase(tweets, db);
     } catch (err) {
         console.log(err);
         process.exit(-1);
