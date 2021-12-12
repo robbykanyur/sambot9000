@@ -153,7 +153,7 @@ const fetchTweetsBulk = async (page) => {
 
 const getArchivedTweets = async (urls) => {
     const pages = parseInt(urls.length / 100);
-    const tweets = [];
+    let responses = [];
     let page = null;
 
     for (let i = 0; i < pages + 1; i++) {
@@ -162,14 +162,18 @@ const getArchivedTweets = async (urls) => {
         } else {
             page = urls.slice(i * 100, urls.length - 1).join(',');
         }
-        tweets.push(await fetchTweetsBulk(page));
+        responses.push(await fetchTweetsBulk(page));
     }
 
-    return tweets;
+    return responses.flat();
 }
 
 const writeJsonFile = async (tweets) => {
     fs.writeFileSync('./data/tweets.json', JSON.stringify(tweets), 'utf-8');
+}
+
+const readJsonFile = async() => {
+    return JSON.parse(fs.readFileSync('./data/tweets.json', 'utf-8'));
 }
 
 (async () => {
@@ -188,6 +192,7 @@ const writeJsonFile = async (tweets) => {
         // console.log(archived_tweets)
         // tweets = await getTweetsByUser(user_id);
         // await addTweetsToDatabase(tweets, db);
+        // const tweets = readJsonFile();
     } catch (err) {
         console.log(err);
         process.exit(-1);
