@@ -1,18 +1,23 @@
 'use strict';
+
+const { DataTypes } = require("sequelize/dist");
+
 module.exports = {
   up: async (queryInterface, Sequelize) => {
     await queryInterface.createTable('Tweets', {
       id: {
-        allowNull: false,
         autoIncrement: true,
         primaryKey: true,
-        type: Sequelize.INTEGER
+        unique: true,
+        type: DataTypes.INTEGER
       },
-      id: {
-        type: Sequelize.STRING
+      tweetID: {
+        type: Sequelize.STRING,
+        unique: true,
+        allowNull: false
       },
       text: {
-        type: Sequelize.STRING
+        type: Sequelize.STRING(512)
       },
       tweetedAt: {
         type: Sequelize.DATE

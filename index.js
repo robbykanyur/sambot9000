@@ -1,5 +1,6 @@
 const needle = require('needle');
-const { Sequelize } = require('sequelize')
+const { Sequelize } = require('sequelize');
+const { Tweet } = require('./db/models')
 const fs = require('fs');
 require('dotenv').config();
 
@@ -23,7 +24,7 @@ async function getUserByUsername(username) {
     const endpoint = "https://api.twitter.com/2/users/by?usernames="
 
     const params = {
-        usernames: String(process.env.USERNAME)
+        usernames: String(process.env.TARGET_USER)
     }
 
     const res = await needle('get', endpoint, params, {
@@ -37,18 +38,6 @@ async function getUserByUsername(username) {
     } else {
         throw new Error('Request unsuccessful')
     }
-}
-
-async function cleanTweetText(tweets) {
-    const re_username = /([@][\w]*)/g;
-    const re_url = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/g;
-
-    return tweets.map((tweet) => {
-        tweet.text = tweet.text.replaceAll(re_username,'')
-        tweet.text = tweet.text.replaceAll(re_url,'')
-        console.dir(tweet);
-        return tweet;
-    });
 }
 
 async function getTweetsByUser(user_id) {
@@ -108,18 +97,6 @@ const getTweetsPage = async (params, options, next_token, endpoint) => {
     }
 }
 
-const addTweetsToDatabase = async (tweets, db) => {
-    const Tweet = db.models.Tweet;
-    console.log(db);
-    for (const tweet in tweets) {
-        await Tweet.create({
-            id: tweet.id,
-            text: tweet.text,
-            tweetedAt: tweet.created_at
-        });
-    };
-}
-
 const loadArchivedTweetIds = async () => {
     const re_id = /[^status\/]\d*$/;
     const urls = fs.readFileSync('./data/data.txt').toString('utf-8').split('\n');
@@ -176,23 +153,37 @@ const readJsonFile = async() => {
     return JSON.parse(fs.readFileSync('./data/tweets.json', 'utf-8'));
 }
 
+async function cleanTweetText(tweets) {
+    const re_username = /([@][\w]*)/g;
+    const re_url = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/g;
+
+    return tweets.map((tweet) => {
+        tweet.text = tweet.text.replaceAll(re_username,'')
+        tweet.text = tweet.text.replaceAll(re_url,'')
+        return tweet;
+    });
+}
+
+const addTweetsToDatabaseBulk = async (tweets, db) => {
+    const formatted_tweets = await cleanTweetText(tweets);
+    const records = [];
+    formatted_tweets.forEach((tweet) => {
+        records.push({
+            tweetID: tweet.id,
+            text: tweet.text,
+            tweetedAt: tweet.created_at
+        })
+    })
+    await Tweet.bulkCreate(records)
+}
+
 (async () => {
-    let user_id = null;
-    let tweets = null;
-    let db = null;
-    let archived_tweet_ids = [];
-    let archived_tweets = [];
+    let tweets, db;
 
     try {
-        // db = await connectToDatabase();
-        // user_id = await getUserByUsername();
-        archived_tweet_ids = await loadArchivedTweetIds();
-        archived_tweets = await getArchivedTweets(archived_tweet_ids);
-        writeJsonFile(archived_tweets);
-        // console.log(archived_tweets)
-        // tweets = await getTweetsByUser(user_id);
-        // await addTweetsToDatabase(tweets, db);
-        // const tweets = readJsonFile();
+        db = await connectToDatabase();
+        tweets = await readJsonFile();
+        await addTweetsToDatabaseBulk(tweets, db);
     } catch (err) {
         console.log(err);
         process.exit(-1);
