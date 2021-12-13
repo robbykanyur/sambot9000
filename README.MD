@@ -23,3 +23,5 @@ env file
     MODEL_02= ID for the second trained model (3 epochs, generally the best tweets)
     MODEL_03= ID for the third trained model (2 epochs, generally under-trained)
     QUEUE= relative path to the curated tweets ready to load into the queue
+    TEST_TOKEN= access token for test account
+    TEST_SECRET= secret token for test account
