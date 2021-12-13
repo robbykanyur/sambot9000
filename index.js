@@ -1,7 +1,8 @@
 const needle = require('needle');
 const { Sequelize } = require('sequelize');
-const { Tweet } = require('./db/models')
+const { Tweet, Queue } = require('./db/models')
 const fs = require('fs');
+const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 require('dotenv').config();
 
 async function connectToDatabase() {
@@ -57,7 +58,6 @@ async function getTweetsByUser(user_id) {
 
     let has_next_page = true;
     let next_token = null;
-    console.log('Retrieving tweets...');
 
     while (has_next_page) {
         let response = await getTweetsPage(params, options, next_token, endpoint);
@@ -88,7 +88,6 @@ const getTweetsPage = async (params, options, next_token, endpoint) => {
         const response = await needle('get', endpoint, params, options);
 
         if (response.statusCode != 200) {
-            console.log(`${response.statusCode} ${response.statusMessage}:n${response.body}`);
             return;
         }
         return response.body;
@@ -177,13 +176,46 @@ const addTweetsToDatabaseBulk = async (tweets, db) => {
     await Tweet.bulkCreate(records)
 }
 
+const generateTrainingData = async (db, type) => {
+    const tweets = await Tweet.findAll();
+    let data = [];
+
+    tweets.forEach((tweet) => {
+        data.push({"prompt": "", "completion": tweet.text})
+    })
+
+    if (type === 'json') {
+        fs.writeFileSync('./data/training_data.json', JSON.stringify(data), 'utf-8');
+    } else if (type === 'csv') {
+        const csvWriter = await createCsvWriter({
+            path: 'data/training_data.csv',
+            header: [
+              {id: 'prompt', title: 'prompt'},
+              {id: 'completion', title: 'completion'}
+            ]
+        });
+
+        await csvWriter.writeRecords(data);
+    }
+}
+
+const loadTweetsIntoQueue = async (db) => {
+    const queue_tweets = fs.readFileSync(process.env.QUEUE).toString('utf-8').split('\n');
+    const records = [];
+    queue_tweets.forEach((tweet) => {
+        records.push({
+            text: tweet
+        })
+    })
+    await Queue.bulkCreate(records)
+}
+
 (async () => {
     let tweets, db;
 
     try {
         db = await connectToDatabase();
-        tweets = await readJsonFile();
-        await addTweetsToDatabaseBulk(tweets, db);
+        await loadTweetsIntoQueue(db);
     } catch (err) {
         console.log(err);
         process.exit(-1);

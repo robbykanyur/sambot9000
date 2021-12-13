@@ -6,15 +6,20 @@
   "scripts": {
     "start": "node index.js",
     "db": "./util/connect_to_db.sh",
-    "scrape": "source ./util/venv/bin/activate && python3 ./util/scrape_tweets.py && deactivate"
+    "scrape": "source ./util/venv/bin/activate && python3 ./util/scrape_tweets.py && deactivate",
+    "generate": "node generate_tweets.js",
+    "bot": "node post_tweets.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "csv-writer": "^1.6.0",
     "dotenv": "^10.0.0",
     "mariadb": "^2.5.5",
     "needle": "^3.0.0",
     "sequelize": "^6.12.0-beta.2",
-    "sequelize-cli": "^6.3.0"
+    "sequelize-cli": "^6.3.0",
+    "twitter-api-v2": "^1.7.2",
+    "twitter-oob": "^1.0.1"
   }
 }
